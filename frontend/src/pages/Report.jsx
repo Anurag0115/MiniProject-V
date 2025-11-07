@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import { useAuth } from "../contexts/AuthContext";
 import {
   Box,
   Container,
@@ -116,6 +117,7 @@ const VisuallyHiddenInput = styled("input")({
 
 const ReportForm = () => {
   const navigate = useNavigate();
+  const { getAuthHeaders } = useAuth();
   const [issueType, setIssueType] = useState("");
   const [customIssueType, setCustomIssueType] = useState("");
   const [location, setLocation] = useState("");
@@ -245,13 +247,18 @@ const ReportForm = () => {
     };
 
     try {
+      const headers = {
+        "Content-Type": "application/json",
+        ...getAuthHeaders(),
+      };
+
       const response = await fetch("http://localhost:5000/api/reports", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers,
         body: JSON.stringify(reportData),
       });
+
+      const responseData = await response.json();
 
       if (response.ok) {
         setResponseMessage("Report submitted successfully!");
@@ -269,8 +276,7 @@ const ReportForm = () => {
           navigate("/user-dashboard");
         }, 1500);
       } else {
-        const errorData = await response.json();
-        setError(errorData.message || "Failed to submit report.");
+        setError(responseData.message || responseData.error || "Failed to submit report.");
       }
     } catch (error) {
       console.error("Error submitting report:", error);

@@ -1,12 +1,14 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
+import { useAuth } from "../contexts/AuthContext";
+import { useNavigate } from "react-router-dom";
+import Heatmap from "../components/Heatmap";
 import {
   Box,
   Container,
   Typography,
   Button,
   Paper,
-  Grid,
   Table,
   TableBody,
   TableCell,
@@ -33,6 +35,7 @@ import {
   InputLabel,
   Tabs,
   Tab,
+  Grid,
 } from "@mui/material";
 import {
   Warning as AlertTriangleIcon,
@@ -67,14 +70,45 @@ import {
   Close as CloseIcon,
   BugReportOutlined,
   TrendingUp as TrendingUpIcon,
+  AccountCircle,
+  Logout,
 } from "@mui/icons-material";
+import { Avatar, Menu, AppBar, Toolbar } from "@mui/material";
 
 const AdminDashboard = () => {
+  const navigate = useNavigate();
+  const { user, logout } = useAuth();
+  const [anchorEl, setAnchorEl] = useState(null);
+  
   // Tab and UI states
   const [activeTab, setActiveTab] = useState("reports");
   const [filterRole, setFilterRole] = useState("all");
   const [openAddUser, setOpenAddUser] = useState(false);
   const [openAddTask, setOpenAddTask] = useState(false);
+  
+  const getInitials = (email) => {
+    if (!email) return "A";
+    const parts = email.split("@");
+    const namePart = parts[0];
+    if (namePart.length >= 2) {
+      return namePart.substring(0, 2).toUpperCase();
+    }
+    return namePart.charAt(0).toUpperCase();
+  };
+
+  const handleMenuOpen = (event) => {
+    setAnchorEl(event.currentTarget);
+  };
+
+  const handleMenuClose = () => {
+    setAnchorEl(null);
+  };
+
+  const handleLogout = () => {
+    logout();
+    handleMenuClose();
+    navigate("/");
+  };
 
   // Data states
   const [liveIssues, setLiveIssues] = useState([]);
@@ -441,22 +475,65 @@ const AdminDashboard = () => {
       sx={{
         minHeight: "100vh",
         bgcolor: "background.default",
-        py: 3,
         width: "100vw",
         boxSizing: "border-box",
         display: "flex",
+        flexDirection: "column",
       }}
     >
-      {/* Left Side Tabs */}
-      <Box
-        sx={{
-          width: 200,
-          bgcolor: "white",
-          borderRight: 1,
-          borderColor: "divider",
-          py: 2,
-        }}
-      >
+      {/* Header Bar */}
+      <AppBar position="static" color="default" elevation={1}>
+        <Toolbar>
+          <Typography variant="h6" color="primary" fontWeight="bold" sx={{ flexGrow: 1 }}>
+            <Button color="inherit" onClick={() => navigate("/")}>
+              MenstruCare Admin
+            </Button>
+          </Typography>
+          {user && (
+            <>
+              <IconButton onClick={handleMenuOpen}>
+                <Avatar
+                  sx={{
+                    bgcolor: "primary.main",
+                    color: "primary.contrastText",
+                    width: 32,
+                    height: 32,
+                    fontSize: "0.875rem",
+                  }}
+                >
+                  {getInitials(user.email)}
+                </Avatar>
+              </IconButton>
+              <Menu
+                anchorEl={anchorEl}
+                open={Boolean(anchorEl)}
+                onClose={handleMenuClose}
+              >
+                <MenuItem disabled>
+                  <AccountCircle sx={{ mr: 1 }} />
+                  {user.email}
+                </MenuItem>
+                <MenuItem onClick={handleLogout}>
+                  <Logout sx={{ mr: 1 }} />
+                  Logout
+                </MenuItem>
+              </Menu>
+            </>
+          )}
+        </Toolbar>
+      </AppBar>
+
+      <Box sx={{ display: "flex", flex: 1 }}>
+        {/* Left Side Tabs */}
+        <Box
+          sx={{
+            width: 200,
+            bgcolor: "white",
+            borderRight: 1,
+            borderColor: "divider",
+            py: 2,
+          }}
+        >
         <Tabs
           orientation="vertical"
           value={activeTab}
@@ -484,6 +561,13 @@ const AdminDashboard = () => {
             label="Users"
             value="users"
             icon={<UserIcon />}
+            iconPosition="start"
+            sx={{ minHeight: "48px" }}
+          />
+          <Tab
+            label="Heatmap"
+            value="heatmap"
+            icon={<BarChart3Icon />}
             iconPosition="start"
             sx={{ minHeight: "48px" }}
           />
@@ -814,6 +898,11 @@ const AdminDashboard = () => {
           </>
         )}
         {activeTab === "users" && renderUserManagement()}
+        {activeTab === "heatmap" && (
+          <Box sx={{ py: 3 }}>
+            <Heatmap />
+          </Box>
+        )}
       </Box>
 
       {/* Add Task Dialog */}
@@ -926,6 +1015,7 @@ const AdminDashboard = () => {
           </Button>
         </DialogActions>
       </Dialog>
+      </Box>
     </Box>
   );
 };

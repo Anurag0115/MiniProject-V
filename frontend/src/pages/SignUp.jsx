@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
+import { useAuth } from "../contexts/AuthContext";
 import {
   Box,
   Container,
@@ -24,6 +25,7 @@ import {
 
 const SignUp = () => {
   const navigate = useNavigate();
+  const { login } = useAuth();
   const [showPassword, setShowPassword] = useState(false);
   const [activeTab, setActiveTab] = useState(0);
   const [formData, setFormData] = useState({
@@ -67,7 +69,7 @@ const SignUp = () => {
       });
 
       const { access_token } = response.data;
-      localStorage.setItem("token", access_token);
+      login(access_token);
 
       if (activeTab === 0) {
         navigate("/user-dashboard");

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import { useAuth } from "../contexts/AuthContext";
 import {
   Box,
   Button,
@@ -9,12 +10,12 @@ import {
   Toolbar,
   Card,
   CardContent,
-  Grid,
   Fade,
   Zoom,
   IconButton,
   useScrollTrigger,
   Fab,
+  Grid,
 } from "@mui/material";
 import {
   BugReportOutlined,
@@ -23,7 +24,10 @@ import {
   Analytics,
   KeyboardArrowUp,
   PlayArrow,
+  AccountCircle,
+  Logout,
 } from "@mui/icons-material";
+import { Avatar, Menu, MenuItem } from "@mui/material";
 
 // Scroll to top component
 function ScrollTop({ children }) {
@@ -157,11 +161,37 @@ const AnimatedBackground = () => {
 
 function HomePage() {
   const navigate = useNavigate();
+  const { user, logout } = useAuth();
   const [heroVisible, setHeroVisible] = useState(false);
+  const [anchorEl, setAnchorEl] = useState(null);
 
   useEffect(() => {
     setHeroVisible(true);
   }, []);
+
+  const handleMenuOpen = (event) => {
+    setAnchorEl(event.currentTarget);
+  };
+
+  const handleMenuClose = () => {
+    setAnchorEl(null);
+  };
+
+  const handleLogout = () => {
+    logout();
+    handleMenuClose();
+    navigate("/");
+  };
+
+  const getInitials = (email) => {
+    if (!email) return "U";
+    const parts = email.split("@");
+    const namePart = parts[0];
+    if (namePart.length >= 2) {
+      return namePart.substring(0, 2).toUpperCase();
+    }
+    return namePart.charAt(0).toUpperCase();
+  };
 
   const features = [
     {
@@ -233,49 +263,122 @@ function HomePage() {
               >
                 Report Issue
               </Button>
-              <Button
-                startIcon={<DashboardOutlined />}
-                onClick={() => navigate("/login")}
-                sx={{
-                  color: "#fff",
-                  textTransform: "none",
-                  fontWeight: 500,
-                  fontSize: "1rem",
-                  borderRadius: 2,
-                  px: 2,
-                  py: 1,
-                  transition: "all 0.3s ease",
-                  "&:hover": {
-                    background: "rgba(255, 255, 255, 0.1)",
-                    transform: "translateY(-2px)",
-                    boxShadow: "0 4px 12px rgba(0, 0, 0, 0.1)",
-                  },
-                }}
-              >
-                Dashboard
-              </Button>
-              <Button
-                variant="contained"
-                onClick={() => navigate("/login")}
-                sx={{
-                  bgcolor: "rgba(255, 255, 255, 0.2)",
-                  color: "white",
-                  textTransform: "none",
-                  borderRadius: "50px",
-                  px: 3,
-                  py: 1,
-                  backdropFilter: "blur(10px)",
-                  boxShadow: "0 4px 16px rgba(0, 0, 0, 0.1)",
-                  transition: "all 0.3s ease",
-                  "&:hover": {
-                    bgcolor: "rgba(255, 255, 255, 0.3)",
-                    transform: "translateY(-2px)",
-                    boxShadow: "0 8px 25px rgba(0, 0, 0, 0.2)",
-                  },
-                }}
-              >
-                Get Started
-              </Button>
+              {user ? (
+                <>
+                  <Button
+                    startIcon={<DashboardOutlined />}
+                    onClick={() => navigate(user.role === "admin" ? "/admin-dashboard" : "/user-dashboard")}
+                    sx={{
+                      color: "#fff",
+                      textTransform: "none",
+                      fontWeight: 500,
+                      fontSize: "1rem",
+                      borderRadius: 2,
+                      px: 2,
+                      py: 1,
+                      transition: "all 0.3s ease",
+                      "&:hover": {
+                        background: "rgba(255, 255, 255, 0.1)",
+                        transform: "translateY(-2px)",
+                        boxShadow: "0 4px 12px rgba(0, 0, 0, 0.1)",
+                      },
+                    }}
+                  >
+                    Dashboard
+                  </Button>
+                  <IconButton
+                    onClick={handleMenuOpen}
+                    sx={{
+                      color: "#fff",
+                      border: "2px solid rgba(255, 255, 255, 0.3)",
+                      "&:hover": {
+                        background: "rgba(255, 255, 255, 0.1)",
+                        borderColor: "rgba(255, 255, 255, 0.5)",
+                      },
+                    }}
+                  >
+                    <Avatar
+                      sx={{
+                        bgcolor: "rgba(255, 255, 255, 0.2)",
+                        color: "#fff",
+                        width: 32,
+                        height: 32,
+                        fontSize: "0.875rem",
+                      }}
+                    >
+                      {getInitials(user.email)}
+                    </Avatar>
+                  </IconButton>
+                  <Menu
+                    anchorEl={anchorEl}
+                    open={Boolean(anchorEl)}
+                    onClose={handleMenuClose}
+                    anchorOrigin={{
+                      vertical: "bottom",
+                      horizontal: "right",
+                    }}
+                    transformOrigin={{
+                      vertical: "top",
+                      horizontal: "right",
+                    }}
+                  >
+                    <MenuItem disabled>
+                      <AccountCircle sx={{ mr: 1 }} />
+                      {user.email}
+                    </MenuItem>
+                    <MenuItem onClick={handleLogout}>
+                      <Logout sx={{ mr: 1 }} />
+                      Logout
+                    </MenuItem>
+                  </Menu>
+                </>
+              ) : (
+                <>
+                  <Button
+                    startIcon={<DashboardOutlined />}
+                    onClick={() => navigate("/login")}
+                    sx={{
+                      color: "#fff",
+                      textTransform: "none",
+                      fontWeight: 500,
+                      fontSize: "1rem",
+                      borderRadius: 2,
+                      px: 2,
+                      py: 1,
+                      transition: "all 0.3s ease",
+                      "&:hover": {
+                        background: "rgba(255, 255, 255, 0.1)",
+                        transform: "translateY(-2px)",
+                        boxShadow: "0 4px 12px rgba(0, 0, 0, 0.1)",
+                      },
+                    }}
+                  >
+                    Dashboard
+                  </Button>
+                  <Button
+                    variant="contained"
+                    onClick={() => navigate("/login")}
+                    sx={{
+                      bgcolor: "rgba(255, 255, 255, 0.2)",
+                      color: "white",
+                      textTransform: "none",
+                      borderRadius: "50px",
+                      px: 3,
+                      py: 1,
+                      backdropFilter: "blur(10px)",
+                      boxShadow: "0 4px 16px rgba(0, 0, 0, 0.1)",
+                      transition: "all 0.3s ease",
+                      "&:hover": {
+                        bgcolor: "rgba(255, 255, 255, 0.3)",
+                        transform: "translateY(-2px)",
+                        boxShadow: "0 8px 25px rgba(0, 0, 0, 0.2)",
+                      },
+                    }}
+                  >
+                    Get Started
+                  </Button>
+                </>
+              )}
             </Box>
           </Toolbar>
         </Container>

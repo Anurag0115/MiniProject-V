@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
+import { useAuth } from "../contexts/AuthContext";
 import {
   Box,
   Container,
@@ -25,6 +26,7 @@ import {
 
 const LoginPage = () => {
   const navigate = useNavigate();
+  const { login } = useAuth();
   const [showPassword, setShowPassword] = useState(false);
   const [activeTab, setActiveTab] = useState(0);
   const [formData, setFormData] = useState({ email: "", password: "" });
@@ -45,6 +47,7 @@ const LoginPage = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setLoading(true);
 
     try {
       const response = await axios.post(
@@ -57,7 +60,7 @@ const LoginPage = () => {
       );
 
       const { access_token } = response.data;
-      localStorage.setItem("token", access_token);
+      login(access_token);
 
       if (activeTab === 0) {
         navigate("/user-dashboard");
@@ -66,6 +69,8 @@ const LoginPage = () => {
       }
     } catch (error) {
       alert(error.response?.data?.error || "Login failed");
+    } finally {
+      setLoading(false);
     }
   };
 

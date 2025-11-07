@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
+import { useAuth } from "../contexts/AuthContext";
 import {
   Box,
   Container,
@@ -10,7 +11,6 @@ import {
   Toolbar,
   Card,
   CardContent,
-  Grid,
   Avatar,
   Chip,
   IconButton,
@@ -23,6 +23,7 @@ import {
   TextField,
   ToggleButton,
   ToggleButtonGroup,
+  Grid,
 } from "@mui/material";
 import {
   Favorite as HeartIcon,
@@ -39,67 +40,13 @@ import {
   CheckCircle as CheckCircleIcon,
   Warning as WarningIcon,
   Error as ErrorIcon,
-  Check as CheckIcon, // Import CheckIcon for the checkmark button
+  Check as CheckIcon,
+  AccountCircle,
+  Logout,
 } from "@mui/icons-material";
+import { Menu, MenuItem } from "@mui/material";
 
-// Washroom status data
-const washroomStatus = [
-  {
-    name: "Science Building - F1",
-    status: "good",
-    lastUpdated: "2 hours ago",
-  },
-  {
-    name: "Library - Ground Floor",
-    status: "maintenance",
-    lastUpdated: "30 mins ago",
-  },
-  {
-    name: "Engineering Block - F2",
-    status: "good",
-    lastUpdated: "1 hour ago",
-  },
-  {
-    name: "Main Building - F3",
-    status: "issue",
-    lastUpdated: "45 mins ago",
-  },
-  {
-    name: "Student Center - F1",
-    status: "good",
-    lastUpdated: "3 hours ago",
-  },
-  {
-    name: "Medical Building - F2",
-    status: "maintenance",
-    lastUpdated: "1.5 hours ago",
-  },
-];
-
-const discussions = [
-  {
-    id: 1,
-    title: "Hygiene supplies shortage in Building A",
-    content:
-      "Has anyone else noticed the lack of soap dispensers on the second floor? This has been an ongoing issue for weeks.",
-    category: "hygiene",
-    author: "Anonymous User #1",
-    timeAgo: "2 hours ago",
-    likes: 8,
-    replies: 12,
-  },
-  {
-    id: 2,
-    title: "Thank you to the maintenance team!",
-    content: "Great work on fixing the facilities quickly!",
-    category: "appreciation",
-    author: "Anonymous User #2",
-    timeAgo: "4 hours ago",
-    likes: 15,
-    replies: 3,
-    resolved: true,
-  },
-];
+// Removed hardcoded data - will fetch from backend
 
 const categories = [
   { name: "All Posts", count: 6 },
@@ -122,6 +69,7 @@ const availableTags = [
 
 function UserDashboard() {
   const navigate = useNavigate();
+  const { user, logout, getAuthHeaders } = useAuth();
   const [activeTab, setActiveTab] = useState(0);
   const [activeCategory, setActiveCategory] = useState("All Posts");
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -134,35 +82,67 @@ function UserDashboard() {
   const [recentReports, setRecentReports] = useState([]);
   const [myReports, setMyReports] = useState([]);
   const [adminUpdates, setAdminUpdates] = useState([]);
+  const [washroomStatus, setWashroomStatus] = useState([]);
+  const [anchorEl, setAnchorEl] = useState(null);
+
+  const getInitials = (email) => {
+    if (!email) return "U";
+    const parts = email.split("@");
+    const namePart = parts[0];
+    if (namePart.length >= 2) {
+      return namePart.substring(0, 2).toUpperCase();
+    }
+    return namePart.charAt(0).toUpperCase();
+  };
+
+  const handleMenuOpen = (event) => {
+    setAnchorEl(event.currentTarget);
+  };
+
+  const handleMenuClose = () => {
+    setAnchorEl(null);
+  };
+
+  const handleLogout = () => {
+    logout();
+    handleMenuClose();
+    navigate("/");
+  };
 
   useEffect(() => {
     fetchReports();
     fetchResolvedReports();
+    fetchWashroomStatus();
   }, []);
 
   const fetchReports = async () => {
     try {
-      const token = localStorage.getItem("token");
-
-      if (!token) {
-        console.warn("No token found in localStorage.");
-      }
+      const headers = getAuthHeaders();
 
       // Fetch recent reports (no auth needed)
       const recentRes = await axios.get("http://localhost:5000/api/reports");
       setRecentReports(recentRes.data);
 
       // Fetch my reports (requires token)
-      if (token) {
+      if (headers.Authorization) {
         const myRes = await axios.get("http://localhost:5000/api/my-reports", {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
+          headers,
         });
         setMyReports(myRes.data);
       }
     } catch (error) {
       console.error("Error fetching reports:", error);
+    }
+  };
+
+  const fetchWashroomStatus = async () => {
+    try {
+      const response = await axios.get("http://localhost:5000/api/washroom-status");
+      setWashroomStatus(response.data);
+    } catch (error) {
+      console.error("Error fetching washroom status:", error);
+      // Set empty array on error
+      setWashroomStatus([]);
     }
   };
 
@@ -275,7 +255,7 @@ function UserDashboard() {
             </Typography>
           </Box>
           <Box sx={{ flexGrow: 1 }} />
-          <Box sx={{ display: "flex", gap: 2 }}>
+          <Box sx={{ display: "flex", gap: 2, alignItems: "center" }}>
             <Button
               startIcon={<HeartIcon />}
               color="inherit"
@@ -283,20 +263,57 @@ function UserDashboard() {
             >
               Report Issue
             </Button>
-            <Button startIcon={<ShieldIcon />} color="inherit">
-              Dashboard
-            </Button>
-            <Button startIcon={<BellIcon />} color="inherit">
-              Audit
-            </Button>
-            <Button color="inherit">Login</Button>
-            <Button
-              variant="contained"
-              color="primary"
-              sx={{ borderRadius: 28 }}
-            >
-              Sign Up
-            </Button>
+            {user ? (
+              <>
+                <IconButton
+                  onClick={handleMenuOpen}
+                  sx={{
+                    border: "1px solid",
+                    borderColor: "divider",
+                  }}
+                >
+                  <Avatar
+                    sx={{
+                      bgcolor: "primary.main",
+                      color: "primary.contrastText",
+                      width: 32,
+                      height: 32,
+                      fontSize: "0.875rem",
+                    }}
+                  >
+                    {getInitials(user.email)}
+                  </Avatar>
+                </IconButton>
+                <Menu
+                  anchorEl={anchorEl}
+                  open={Boolean(anchorEl)}
+                  onClose={handleMenuClose}
+                >
+                  <MenuItem disabled>
+                    <AccountCircle sx={{ mr: 1 }} />
+                    {user.email}
+                  </MenuItem>
+                  <MenuItem onClick={handleLogout}>
+                    <Logout sx={{ mr: 1 }} />
+                    Logout
+                  </MenuItem>
+                </Menu>
+              </>
+            ) : (
+              <>
+                <Button color="inherit" onClick={() => navigate("/login")}>
+                  Login
+                </Button>
+                <Button
+                  variant="contained"
+                  color="primary"
+                  sx={{ borderRadius: 28 }}
+                  onClick={() => navigate("/signup")}
+                >
+                  Sign Up
+                </Button>
+              </>
+            )}
           </Box>
         </Toolbar>
       </AppBar>
@@ -588,66 +605,74 @@ function UserDashboard() {
                     <Typography color="text.secondary" gutterBottom>
                       Real-time status of all washroom facilities
                     </Typography>
-                    {washroomStatus.map((washroom, index) => (
-                      <Box
-                        key={index}
-                        sx={{ py: 2, borderBottom: 1, borderColor: "divider" }}
-                      >
+                    {washroomStatus.length > 0 ? (
+                      washroomStatus.map((washroom, index) => (
                         <Box
-                          sx={{
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "space-between",
-                            mb: 1,
-                          }}
+                          key={index}
+                          sx={{ py: 2, borderBottom: 1, borderColor: "divider" }}
                         >
-                          <Typography variant="subtitle2" sx={{ flex: 1 }}>
-                            {washroom.name}
-                          </Typography>
                           <Box
                             sx={{
                               display: "flex",
                               alignItems: "center",
-                              gap: 1,
+                              justifyContent: "space-between",
+                              mb: 1,
                             }}
                           >
-                            {getStatusIcon(washroom.status)}
+                            <Typography variant="subtitle2" sx={{ flex: 1 }}>
+                              {washroom.name || "Unknown Location"}
+                            </Typography>
                             <Box
                               sx={{
-                                width: 12,
-                                height: 12,
-                                borderRadius: "50%",
-                                bgcolor: getStatusColor(washroom.status),
+                                display: "flex",
+                                alignItems: "center",
+                                gap: 1,
+                              }}
+                            >
+                              {getStatusIcon(washroom.status || "good")}
+                              <Box
+                                sx={{
+                                  width: 12,
+                                  height: 12,
+                                  borderRadius: "50%",
+                                  bgcolor: getStatusColor(washroom.status || "good"),
+                                }}
+                              />
+                            </Box>
+                          </Box>
+                          <Box
+                            sx={{
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "space-between",
+                            }}
+                          >
+                            <Chip
+                              size="small"
+                              label={
+                                (washroom.status || "good").charAt(0).toUpperCase() +
+                                (washroom.status || "good").slice(1)
+                              }
+                              sx={{
+                                bgcolor: getStatusColor(washroom.status || "good"),
+                                color: "white",
+                                fontSize: "0.7rem",
+                                height: "20px",
                               }}
                             />
+                            <Typography variant="caption" color="text.secondary">
+                              {washroom.lastUpdated || "N/A"}
+                            </Typography>
                           </Box>
                         </Box>
-                        <Box
-                          sx={{
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "space-between",
-                          }}
-                        >
-                          <Chip
-                            size="small"
-                            label={
-                              washroom.status.charAt(0).toUpperCase() +
-                              washroom.status.slice(1)
-                            }
-                            sx={{
-                              bgcolor: getStatusColor(washroom.status),
-                              color: "white",
-                              fontSize: "0.7rem",
-                              height: "20px",
-                            }}
-                          />
-                          <Typography variant="caption" color="text.secondary">
-                            {washroom.lastUpdated}
-                          </Typography>
-                        </Box>
+                      ))
+                    ) : (
+                      <Box sx={{ textAlign: "center", py: 3 }}>
+                        <Typography color="text.secondary">
+                          No washroom status data available
+                        </Typography>
                       </Box>
-                    ))}
+                    )}
                   </CardContent>
                 </Card>
               </Grid>
@@ -820,88 +845,14 @@ function UserDashboard() {
             </Box>
 
             <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
-              {discussions.map((discussion) => (
-                <Card key={discussion.id}>
-                  <CardContent>
-                    <Box sx={{ display: "flex", gap: 2 }}>
-                      <Avatar sx={{ bgcolor: "primary.light" }}>A</Avatar>
-                      <Box sx={{ flex: 1 }}>
-                        <Box
-                          sx={{
-                            display: "flex",
-                            alignItems: "center",
-                            gap: 1,
-                            mb: 1,
-                          }}
-                        >
-                          <Typography variant="subtitle1" fontWeight="medium">
-                            {discussion.title}
-                          </Typography>
-                          <Chip
-                            size="small"
-                            color={getCategoryColor(discussion.category)}
-                            label={discussion.category}
-                          />
-                          {discussion.resolved && (
-                            <Chip
-                              size="small"
-                              color="success"
-                              label="Resolved"
-                            />
-                          )}
-                        </Box>
-                        <Typography variant="body2" paragraph>
-                          {discussion.content}
-                        </Typography>
-                        <Box
-                          sx={{
-                            display: "flex",
-                            justifyContent: "space-between",
-                            alignItems: "center",
-                          }}
-                        >
-                          <Box
-                            sx={{
-                              display: "flex",
-                              alignItems: "center",
-                              gap: 1,
-                            }}
-                          >
-                            <UserIcon fontSize="small" />
-                            <Typography variant="body2" color="text.secondary">
-                              {discussion.author}
-                            </Typography>
-                            <Typography variant="body2" color="text.secondary">
-                              •
-                            </Typography>
-                            <ClockIcon fontSize="small" />
-                            <Typography variant="body2" color="text.secondary">
-                              {discussion.timeAgo}
-                            </Typography>
-                          </Box>
-                          <Box sx={{ display: "flex", gap: 2 }}>
-                            <IconButton size="small">
-                              <HeartIcon fontSize="small" />
-                            </IconButton>
-                            <Typography variant="body2" color="text.secondary">
-                              {discussion.likes}
-                            </Typography>
-                            <IconButton size="small">
-                              <MessageIcon fontSize="small" />
-                            </IconButton>
-                            <Typography variant="body2" color="text.secondary">
-                              {discussion.replies}
-                            </Typography>
-                            <IconButton size="small">
-                              <ReplyIcon fontSize="small" />
-                            </IconButton>
-                          </Box>
-                        </Box>
-                      </Box>
-                    </Box>
-                  </CardContent>
-                </Card>
-              ))}
+              <Box sx={{ textAlign: "center", py: 4 }}>
+                <Typography variant="h6" color="text.secondary" gutterBottom>
+                  Discussion Forum
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  Discussion forum feature coming soon. For now, you can view reports and updates above.
+                </Typography>
+              </Box>
             </Box>
           </Box>
         )}
