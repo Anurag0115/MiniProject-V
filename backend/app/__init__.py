@@ -5,6 +5,7 @@ from app.routes.auth_routes import auth_bp
 from app.routes.report_routes import report_bp
 from .routes.admin_update_routes import admin_bp
 from .routes.analytics_routes import analytics_bp
+from .routes.discussion_routes import discussion_bp
 
 
 def create_app():
@@ -39,4 +40,5 @@ def create_app():
     app.register_blueprint(report_bp)
     app.register_blueprint(admin_bp)
     app.register_blueprint(analytics_bp)
+    app.register_blueprint(discussion_bp)
     return app

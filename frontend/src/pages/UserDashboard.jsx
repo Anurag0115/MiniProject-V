@@ -24,6 +24,7 @@ import {
   ToggleButton,
   ToggleButtonGroup,
   Grid,
+  Divider,
 } from "@mui/material";
 import {
   Favorite as HeartIcon,
@@ -47,16 +48,6 @@ import {
 import { Menu, MenuItem } from "@mui/material";
 
 // Removed hardcoded data - will fetch from backend
-
-const categories = [
-  { name: "All Posts", count: 6 },
-  { name: "Hygiene", count: 1 },
-  { name: "Privacy", count: 1 },
-  { name: "Urgent", count: 1 },
-  { name: "Suggestions", count: 1 },
-  { name: "Appreciation", count: 1 },
-  { name: "Feedback", count: 1 },
-];
 
 const availableTags = [
   "hygiene",
@@ -83,6 +74,18 @@ function UserDashboard() {
   const [myReports, setMyReports] = useState([]);
   const [adminUpdates, setAdminUpdates] = useState([]);
   const [washroomStatus, setWashroomStatus] = useState([]);
+  const [discussions, setDiscussions] = useState([]);
+  const [categories, setCategories] = useState([
+    { name: "All Posts", count: 0 },
+    { name: "Hygiene", count: 0 },
+    { name: "Privacy", count: 0 },
+    { name: "Urgent", count: 0 },
+    { name: "Suggestions", count: 0 },
+    { name: "Appreciation", count: 0 },
+    { name: "Feedback", count: 0 },
+  ]);
+  const [selectedDiscussion, setSelectedDiscussion] = useState(null);
+  const [commentText, setCommentText] = useState("");
   const [anchorEl, setAnchorEl] = useState(null);
 
   const getInitials = (email) => {
@@ -113,7 +116,15 @@ function UserDashboard() {
     fetchReports();
     fetchResolvedReports();
     fetchWashroomStatus();
-  }, []);
+    fetchDiscussions();
+    fetchDiscussionStats();
+  }, [activeCategory]);
+
+  useEffect(() => {
+    if (activeTab === 1) {
+      fetchDiscussions();
+    }
+  }, [activeCategory, activeTab]);
 
   const fetchReports = async () => {
     try {
@@ -235,10 +246,96 @@ function UserDashboard() {
     }));
   };
 
-  const handleSubmitDiscussion = () => {
-    console.log("New discussion:", discussionForm);
-    setDiscussionForm({ title: "", description: "", tags: [] });
-    setIsModalOpen(false);
+  const fetchDiscussions = async () => {
+    try {
+      const categoryParam = activeCategory === "All Posts" ? "" : `?category=${activeCategory}`;
+      const response = await axios.get(`http://localhost:5000/api/discussions${categoryParam}`);
+      setDiscussions(response.data);
+    } catch (error) {
+      console.error("Error fetching discussions:", error);
+      setDiscussions([]);
+    }
+  };
+
+  const fetchDiscussionStats = async () => {
+    try {
+      const response = await axios.get("http://localhost:5000/api/discussions/stats");
+      const stats = response.data;
+      setCategories([
+        { name: "All Posts", count: stats["All Posts"] || 0 },
+        { name: "Hygiene", count: stats["Hygiene"] || 0 },
+        { name: "Privacy", count: stats["Privacy"] || 0 },
+        { name: "Urgent", count: stats["Urgent"] || 0 },
+        { name: "Suggestions", count: stats["Suggestions"] || 0 },
+        { name: "Appreciation", count: stats["Appreciation"] || 0 },
+        { name: "Feedback", count: stats["Feedback"] || 0 },
+      ]);
+    } catch (error) {
+      console.error("Error fetching discussion stats:", error);
+    }
+  };
+
+  const handleSubmitDiscussion = async () => {
+    try {
+      const headers = {
+        "Content-Type": "application/json",
+        ...getAuthHeaders(),
+      };
+
+      const response = await axios.post(
+        "http://localhost:5000/api/discussions",
+        {
+          title: discussionForm.title,
+          description: discussionForm.description,
+          tags: discussionForm.tags,
+        },
+        { headers }
+      );
+
+      if (response.data) {
+        setDiscussionForm({ title: "", description: "", tags: [] });
+        setIsModalOpen(false);
+        fetchDiscussions();
+        fetchDiscussionStats();
+      }
+    } catch (error) {
+      console.error("Error submitting discussion:", error);
+      alert("Failed to submit discussion. Please try again.");
+    }
+  };
+
+  const fetchDiscussionDetails = async (discussionId) => {
+    try {
+      const response = await axios.get(`http://localhost:5000/api/discussions/${discussionId}`);
+      setSelectedDiscussion(response.data);
+    } catch (error) {
+      console.error("Error fetching discussion details:", error);
+    }
+  };
+
+  const handleAddComment = async () => {
+    if (!commentText.trim() || !selectedDiscussion) return;
+
+    try {
+      const headers = {
+        "Content-Type": "application/json",
+        ...getAuthHeaders(),
+      };
+
+      const response = await axios.post(
+        `http://localhost:5000/api/discussions/${selectedDiscussion._id}/comments`,
+        { text: commentText },
+        { headers }
+      );
+
+      if (response.data) {
+        setCommentText("");
+        fetchDiscussionDetails(selectedDiscussion._id);
+      }
+    } catch (error) {
+      console.error("Error adding comment:", error);
+      alert("Failed to add comment. Please try again.");
+    }
   };
 
   return (
@@ -845,14 +942,177 @@ function UserDashboard() {
             </Box>
 
             <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
-              <Box sx={{ textAlign: "center", py: 4 }}>
-                <Typography variant="h6" color="text.secondary" gutterBottom>
-                  Discussion Forum
-                </Typography>
-                <Typography variant="body2" color="text.secondary">
-                  Discussion forum feature coming soon. For now, you can view reports and updates above.
-                </Typography>
-              </Box>
+              {selectedDiscussion ? (
+                // Discussion Detail View
+                <Card>
+                  <CardContent>
+                    <Box sx={{ display: "flex", justifyContent: "space-between", mb: 2 }}>
+                      <Button
+                        startIcon={<ReplyIcon />}
+                        onClick={() => setSelectedDiscussion(null)}
+                        size="small"
+                      >
+                        Back to Discussions
+                      </Button>
+                    </Box>
+                    <Typography variant="h5" gutterBottom>
+                      {selectedDiscussion.title}
+                    </Typography>
+                    <Box sx={{ display: "flex", gap: 1, mb: 2, flexWrap: "wrap" }}>
+                      {selectedDiscussion.tags?.map((tag, idx) => (
+                        <Chip
+                          key={idx}
+                          label={tag}
+                          size="small"
+                          color="primary"
+                          variant="outlined"
+                        />
+                      ))}
+                    </Box>
+                    <Typography variant="body1" paragraph sx={{ whiteSpace: "pre-wrap" }}>
+                      {selectedDiscussion.description}
+                    </Typography>
+                    <Box sx={{ display: "flex", gap: 2, mb: 3, color: "text.secondary" }}>
+                      <Typography variant="caption">
+                        By: {selectedDiscussion.authorEmail === "anonymous" ? "Anonymous" : selectedDiscussion.authorEmail}
+                      </Typography>
+                      <Typography variant="caption">
+                        {selectedDiscussion.createdAt &&
+                          new Date(selectedDiscussion.createdAt).toLocaleString()}
+                      </Typography>
+                      <Typography variant="caption">
+                        {selectedDiscussion.commentCount || 0} comments
+                      </Typography>
+                    </Box>
+
+                    <Divider sx={{ my: 3 }} />
+
+                    <Typography variant="h6" gutterBottom>
+                      Comments ({selectedDiscussion.comments?.length || 0})
+                    </Typography>
+
+                    <Box sx={{ display: "flex", flexDirection: "column", gap: 2, mb: 3 }}>
+                      {selectedDiscussion.comments?.map((comment, idx) => (
+                        <Box
+                          key={idx}
+                          sx={{
+                            p: 2,
+                            bgcolor: "grey.100",
+                            borderRadius: 2,
+                          }}
+                        >
+                          <Typography variant="body2" paragraph>
+                            {comment.text}
+                          </Typography>
+                          <Box sx={{ display: "flex", gap: 2, color: "text.secondary" }}>
+                            <Typography variant="caption">
+                              {comment.authorEmail === "anonymous" ? "Anonymous" : comment.authorEmail}
+                            </Typography>
+                            <Typography variant="caption">
+                              {comment.createdAt &&
+                                new Date(comment.createdAt).toLocaleString()}
+                            </Typography>
+                          </Box>
+                        </Box>
+                      ))}
+                      {(!selectedDiscussion.comments || selectedDiscussion.comments.length === 0) && (
+                        <Typography variant="body2" color="text.secondary" sx={{ py: 2 }}>
+                          No comments yet. Be the first to comment!
+                        </Typography>
+                      )}
+                    </Box>
+
+                    <Box sx={{ display: "flex", gap: 1 }}>
+                      <TextField
+                        fullWidth
+                        multiline
+                        rows={2}
+                        placeholder="Add a comment..."
+                        value={commentText}
+                        onChange={(e) => setCommentText(e.target.value)}
+                        size="small"
+                      />
+                      <Button
+                        variant="contained"
+                        onClick={handleAddComment}
+                        disabled={!commentText.trim()}
+                        sx={{ alignSelf: "flex-start" }}
+                      >
+                        Post
+                      </Button>
+                    </Box>
+                  </CardContent>
+                </Card>
+              ) : (
+                // Discussion List View
+                <>
+                  {discussions.length === 0 ? (
+                    <Box sx={{ textAlign: "center", py: 4 }}>
+                      <Typography variant="h6" color="text.secondary" gutterBottom>
+                        No discussions yet
+                      </Typography>
+                      <Typography variant="body2" color="text.secondary">
+                        Be the first to start a discussion!
+                      </Typography>
+                    </Box>
+                  ) : (
+                    discussions.map((discussion) => (
+                      <Card
+                        key={discussion._id}
+                        sx={{
+                          cursor: "pointer",
+                          "&:hover": { boxShadow: 4 },
+                          transition: "box-shadow 0.2s",
+                        }}
+                        onClick={() => fetchDiscussionDetails(discussion._id)}
+                      >
+                        <CardContent>
+                          <Typography variant="h6" gutterBottom>
+                            {discussion.title}
+                          </Typography>
+                          <Typography
+                            variant="body2"
+                            color="text.secondary"
+                            sx={{
+                              mb: 2,
+                              display: "-webkit-box",
+                              WebkitLineClamp: 2,
+                              WebkitBoxOrient: "vertical",
+                              overflow: "hidden",
+                            }}
+                          >
+                            {discussion.description}
+                          </Typography>
+                          <Box sx={{ display: "flex", gap: 1, mb: 2, flexWrap: "wrap" }}>
+                            {discussion.tags?.map((tag, idx) => (
+                              <Chip
+                                key={idx}
+                                label={tag}
+                                size="small"
+                                color="primary"
+                                variant="outlined"
+                              />
+                            ))}
+                          </Box>
+                          <Box sx={{ display: "flex", gap: 2, color: "text.secondary" }}>
+                            <Typography variant="caption">
+                              {discussion.authorEmail === "anonymous" ? "Anonymous" : discussion.authorEmail}
+                            </Typography>
+                            <Typography variant="caption">
+                              {discussion.createdAt &&
+                                new Date(discussion.createdAt).toLocaleString()}
+                            </Typography>
+                            <Typography variant="caption">
+                              <MessageIcon fontSize="small" sx={{ verticalAlign: "middle", mr: 0.5 }} />
+                              {discussion.commentCount || 0} comments
+                            </Typography>
+                          </Box>
+                        </CardContent>
+                      </Card>
+                    ))
+                  )}
+                </>
+              )}
             </Box>
           </Box>
         )}
